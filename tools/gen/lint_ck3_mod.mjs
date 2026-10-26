@@ -14,7 +14,9 @@
 //  6. every `info_log` record matches the record grammar of docs/PROTOCOL.md, and records that carry values are
 //     immediately followed by `info_log_scopes = yes`; a CX|txp level exists in that trait's chain
 //     (bridge/data/ck3_combat_traits.json);
-//  7. every localization key referenced by the mod exists exactly once (battle_event keys need all 4 suffixes);
+//  7. every localization key referenced by the mod exists exactly once in English (battle_event keys need all 4 suffixes);
+//     every file is localization/<language>/*_l_<language>.yml starting with l_<language>:, and every other language has
+//     exactly the English keys, each with the same [...], #! and \n;
 //  8. scopes and contexts (lib/scopecheck.mjs): effects only where effects run, triggers only in trigger blocks,
 //     every key in a scope type it supports, links/iterators/targets of the right type, every scope:/var:/global_var:
 //     name set somewhere;
@@ -751,24 +753,37 @@ export function lintMod({ modDir = DEFAULT_MOD, overrides = {} } = {}) {
 
   // --- localization ----------------------------------------------------------------------------------------
 
-  const loc = new Map();
+  // One key table per language (localization/<language>/*_l_<language>.yml). English is the reference: the mod's references
+  // are checked against it, and every other language must have exactly its keys, with the same [...], #! and \n per key.
+  const REF_LANG = 'english';
+  const locByLang = new Map();
+  const firstFileOf = new Map();
   for (const file of files.filter((f) => f.endsWith('.yml'))) {
     const lines = stripBom(texts.get(file)).split(/\r?\n/);
     const header = lines.findIndex((l) => l.trim() && !l.trim().startsWith('#'));
-    if (header < 0 || lines[header].trim() !== 'l_english:') error(file, header + 1, 'first entry must be l_english:');
-    if (!path.basename(file).endsWith('_l_english.yml')) error(file, 1, 'file name must end with _l_english.yml');
+    const dir = /^localization\/([a-z_]+)\//.exec(rel(file));
+    const lang = dir ? dir[1] : null;
+    if (!lang) error(file, 1, 'localization file must be in localization/<language>/');
+    else {
+      if (header < 0 || lines[header].trim() !== `l_${lang}:`) error(file, header + 1, `first entry must be l_${lang}:`);
+      if (!path.basename(file).endsWith(`_l_${lang}.yml`)) error(file, 1, `file name must end with _l_${lang}.yml`);
+    }
+    const table = locByLang.get(lang) ?? new Map();
+    locByLang.set(lang, table);
+    if (!firstFileOf.has(lang)) firstFileOf.set(lang, file);
     lines.forEach((l, i) => {
       if (i <= header || !l.trim() || l.trim().startsWith('#')) return;
       const m = /^ ([A-Za-z0-9_.\-]+):\d* "(.*)"\s*$/.exec(l);
       if (!m) { error(file, i + 1, 'malformed localization line'); return; }
-      if (loc.has(m[1])) error(file, i + 1, `duplicate localization key ${m[1]}`);
-      loc.set(m[1], { file, line: i + 1, text: m[2] });
+      if (table.has(m[1])) error(file, i + 1, `duplicate localization key ${m[1]}`);
+      table.set(m[1], { file, line: i + 1, text: m[2] });
       const text = m[2];
       if ((text.match(/\[/g) || []).length !== (text.match(/\]/g) || []).length) error(file, i + 1, `unbalanced [ ] in ${m[1]}`);
       const opens = (text.match(/#[A-Za-z]+[ ]/g) || []).length;
       const closes = (text.match(/#!/g) || []).length;
       if (opens !== closes) error(file, i + 1, `unbalanced #format ... #! in ${m[1]}`);
       if (/(?<!\\)"/.test(text)) error(file, i + 1, `unescaped quote in ${m[1]}`);
+      if (lang !== REF_LANG) return;   // the reference language alone declares what the localization refers to
       // the last two arguments of SelectLocalization( condition, 'key_if_true', 'key_if_false' )
       for (const r of text.matchAll(/SelectLocalization\(.*?,\s*'([A-Za-z0-9_.]+)'\s*,\s*'([A-Za-z0-9_.]+)'\s*\)/g)) {
         needLoc(r[1], file, i + 1);
@@ -776,6 +791,22 @@ export function lintMod({ modDir = DEFAULT_MOD, overrides = {} } = {}) {
       }
       for (const r of text.matchAll(/\$([A-Za-z0-9_.]+)\$/g)) needLoc(r[1], file, i + 1);
     });
+  }
+  const loc = locByLang.get(REF_LANG) ?? new Map();
+  // Same keys as English in every language, and per key the same [...] (as a multiset: a translation may reorder them),
+  // the same number of #! and of \n.
+  const brackets = (t) => (t.match(/\[[^\]]*\]/g) || []).sort().join(' ');
+  const count = (t, rx) => (t.match(rx) || []).length;
+  for (const [lang, table] of locByLang) {
+    if (lang === REF_LANG || lang === null) continue;
+    for (const [key, ref] of loc) {
+      const own = table.get(key);
+      if (!own) { error(firstFileOf.get(lang), 1, `missing ${lang} localization key ${key}`); continue; }
+      if (brackets(own.text) !== brackets(ref.text)) error(own.file, own.line, `${key}: [...] differ from ${REF_LANG}`);
+      if (count(own.text, /#!/g) !== count(ref.text, /#!/g)) error(own.file, own.line, `${key}: number of #! differs from ${REF_LANG}`);
+      if (count(own.text, /\\n/g) !== count(ref.text, /\\n/g)) error(own.file, own.line, `${key}: number of \\n differs from ${REF_LANG}`);
+    }
+    for (const [key, own] of table) if (!loc.has(key)) error(own.file, own.line, `${lang} localization key ${key} is not in ${REF_LANG}`);
   }
   const used = new Set();
   for (const ref of locRefs) {

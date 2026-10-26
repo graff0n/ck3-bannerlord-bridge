@@ -54,6 +54,24 @@ namespace CK3xBL.Protocol
         // bridge's card dissolves into the battle. The bridge always sends false; when its own card could not be shown it sends
         // the module command "title_in_engine", after which the module treats the held battle as true.
         public bool InEngineTitle = true;
+
+        // PROTOCOL §3.2 presentation.texts: the module's own result texts in the player's language. Null (absent, also from an
+        // older bridge) = the module's built-in English. Sent only for a language other than English.
+        public ModuleTexts Texts;
+    }
+
+    /// <summary>
+    /// Templates of the module's result footer (PROTOCOL §3.2). A template that is empty or lacks its required placeholder is
+    /// ignored and the module's English is used: {title} for the outcomes, {outcome} for the footers ({seconds} in the countdown).
+    /// </summary>
+    public class ModuleTexts
+    {
+        public string TheBattle;                         // the outcome's subject when the title is not a battle name ("The battle")
+        public string OutcomeWon;                        // "{title} is won"
+        public string OutcomeLost;                       // "{title} is lost"
+        public string OutcomeOver;                       // "{title} is over"
+        public string CountdownFooter;                   // "{outcome}  ·  Returning to your realm in {seconds}  ·  ..."
+        public string WaitFooter;                        // "{outcome}  ·  [Enter] Return to your realm"
     }
 
     public class ScaleInfo

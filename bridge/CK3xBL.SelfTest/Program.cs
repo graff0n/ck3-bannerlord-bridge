@@ -10,6 +10,7 @@ MappingTests.Register(registry);
 AppearanceTests.Register(registry);
 IntegrationTests.Register(registry);
 ReleaseTests.Register(registry);
+I18nTests.Register(registry);
 // <Component>Tests.Register(registry);   <- other components add their line here
 
 return await registry.RunAsync(args);

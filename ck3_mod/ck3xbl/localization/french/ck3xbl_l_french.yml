@@ -1,0 +1,86 @@
+﻿l_french:
+ # Message filter (key = "message_filter_" + filter) and the battle toast.
+ message_filter_ck3xbl_battle:0 "Batailles livrées sur le terrain"
+ msg_ck3xbl_battle_begins_title:0 "Aux armes !"
+ msg_ck3xbl_battle_begins_desc:0 "Les armées se rencontrent. Prendrez-vous le terrain ?"
+
+ # Battle clock (docs/PROTOCOL.md 14): the second-clash toast and the news toasts (filter ck3xbl_battle_news, no pause).
+ message_filter_ck3xbl_battle_news:0 "Batailles décidées sur le terrain"
+ msg_ck3xbl_reinforcements_title:0 "Des renforts !"
+ msg_ck3xbl_reinforcements_desc:0 "Des troupes fraîches rejoignent la bataille. Reprendrez-vous le terrain ?"
+ msg_ck3xbl_battle_rages_title:0 "La bataille fait rage"
+ msg_ck3xbl_battle_rages_desc:0 "La bataille n'est pas encore finie. Reprenez la partie pour en connaître l'issue."
+ msg_ck3xbl_battle_over_title:0 "La bataille est terminée"
+ msg_ck3xbl_battle_over_desc:0 "Les combats ont cessé et les osts comptent leurs morts."
+
+ # 0001 - the call to arms
+ ck3xbl_battle.0001.t:0 "La bataille de [ck3xbl_prov.GetNameNoTooltip]"
+ ck3xbl_battle.0001.desc.attacking:0 "Notre ost a rattrapé [ck3xbl_enemy_leader.GetTitledFirstName] près de [ck3xbl_prov.GetNameNoTooltip]. Le terrain est à nous, si nous en avons le courage."
+ ck3xbl_battle.0001.desc.defending:0 "Les bannières de [ck3xbl_enemy_leader.GetTitledFirstName] apparaissent sur les collines au-dessus de [ck3xbl_prov.GetNameNoTooltip]. Notre ost doit tenir et combattre."
+ # The troop numbers are saved scope values of this event's chain (one per battle, so two windows never mix them).
+ ck3xbl_battle.0001.desc.odds:0 "\n\n#V [ck3xbl_my_men|0]#! de nos hommes font face à #V [ck3xbl_enemy_men|0]#!."
+ # A second clash (PROTOCOL 14.6): the joiner reinforces our host or the enemy's; "passed" once the battle went on without us.
+ ck3xbl_battle.0001.t.reinforcements:0 "Des renforts arrivent !"
+ ck3xbl_battle.0001.desc.reinforcements_ours:0 "[ck3xbl_joiner_leader.GetTitledFirstName] arrive à [ck3xbl_prov.GetNameNoTooltip] avec des troupes fraîches pour notre ost. L'issue de la bataille est de nouveau incertaine."
+ ck3xbl_battle.0001.desc.reinforcements_theirs:0 "[ck3xbl_joiner_leader.GetTitledFirstName] arrive à [ck3xbl_prov.GetNameNoTooltip] avec des troupes fraîches pour l'ost ennemi. L'issue de la bataille est de nouveau incertaine."
+ ck3xbl_battle.0001.desc.passed:0 "Le moment est passé : la bataille s'est poursuivie sans vous."
+ ck3xbl_moment_passed_tt:0 "La bataille s'est poursuivie sans vous"
+ ck3xbl_battle.0001.a:0 "Je prendrai moi-même le terrain !"
+ ck3xbl_battle.0001.c:0 "Je mènerai cet ost en personne."
+ ck3xbl_battle.0001.b:0 "Que mes commandants décident de la journée."
+ ck3xbl_field_busy_tt:0 "Une autre bataille est déjà livrée sur le terrain"
+ ck3xbl_with_host_tt:0 "Vous chevauchez avec cet ost"
+ ck3xbl_away_from_host_tt:0 "Vous n'êtes pas avec cet ost"
+
+ # 0002 - waiting for the battle; the status line is drawn by gui/event_window_widgets/ck3xbl_keypad.gui
+ ck3xbl_battle.0002.t:0 "Le choc des armées"
+ ck3xbl_battle.0002.desc:0 "L'acier résonne à travers [ck3xbl_prov.GetNameNoTooltip]. La nouvelle de l'issue nous parviendra bientôt."
+ ck3xbl_battle.0002.desc.clock:0 "\n\nQuand la poussière sera retombée, reprenez la partie : la bataille sera décidée en quelques jours."
+ ck3xbl_battle.0002.a:0 "La poussière retombe..."
+ ck3xbl_battle.0002.b:0 "Laisser la bataille suivre son cours sans moi."
+ ck3xbl_input_status:0 "[SelectLocalization( GreaterThan_CFixedPoint( GetPlayer.MakeScope.Var('ck3xbl_ready').GetValue, '(CFixedPoint)0' ), 'ck3xbl_input_status_ready', 'ck3xbl_input_status_wait' )]"
+ ck3xbl_input_status_wait:0 "#weak En attente de nouvelles du terrain...#!"
+ ck3xbl_input_status_ready:0 "#P La dépêche est arrivée.#!"
+
+ # 0003 - the outcome (player variables set by ck3xbl_apply_summary_effect)
+ ck3xbl_battle.0003.t.win:0 "Victoire à [ck3xbl_prov.GetNameNoTooltip]"
+ ck3xbl_battle.0003.t.loss:0 "Défaite à [ck3xbl_prov.GetNameNoTooltip]"
+ ck3xbl_battle.0003.t.undecided:0 "La bataille de [ck3xbl_prov.GetNameNoTooltip]"
+ ck3xbl_battle.0003.desc.numbers:0 "Nous avons perdu #N [ROOT.Char.MakeScope.Var('ck3xbl_res_my_lost').GetValue|0]#! hommes, et l'ennemi a laissé #P [ROOT.Char.MakeScope.Var('ck3xbl_res_enemy_lost').GetValue|0]#! des siens sur le terrain."
+ ck3xbl_battle.0003.desc.personal:0 "\n\nJ'ai abattu #V [ROOT.Char.MakeScope.Var('ck3xbl_res_my_kills').GetValue|0]#! ennemis de ma propre main."
+ ck3xbl_battle.0003.desc.continues:0 "\n\nAucun des deux osts n'a cédé : les armées restent aux prises."
+ ck3xbl_battle.0003.desc.aftermath:0 "\n\nLa déroute n'est pas finie : d'autres vaincus pourraient encore être capturés ou abattus."
+ ck3xbl_battle.0003.desc.cancelled:0 "Aucune nouvelle n'est venue du terrain. Mes commandants mèneront la bataille à son terme."
+ ck3xbl_battle.0003.a:0 "Ainsi soit-il."
+
+ # Combat summary lines (battle_event). Attached to the victim's side: CHARACTER = the victim (left portrait),
+ # TARGET_CHARACTER = the killer or captor (right portrait). The engine appends _friendly / _enemy and the
+ # _player variants when the player is the character of that perspective.
+ ck3xbl_wounded_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été blessé au cœur de la mêlée !"
+ ck3xbl_wounded_friendly_player:0 "Vous avez été blessé au cœur de la mêlée !"
+ ck3xbl_wounded_enemy:0 "[CHARACTER.GetUINameNoTooltip], dans le camp ennemi, a été blessé au cœur de la mêlée !"
+ ck3xbl_wounded_enemy_player:0 "[CHARACTER.GetUINameNoTooltip], dans le camp ennemi, a été blessé au cœur de la mêlée !"
+ ck3xbl_wounded_by_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été blessé par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_wounded_by_friendly_player:0 "Vous avez été blessé par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_wounded_by_enemy:0 "[TARGET_CHARACTER.GetUINameNoTooltip] a blessé [CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_wounded_by_enemy_player:0 "Vous avez blessé [CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_maimed_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été mutilé au cœur de la mêlée !"
+ ck3xbl_maimed_friendly_player:0 "Vous avez été mutilé au cœur de la mêlée !"
+ ck3xbl_maimed_enemy:0 "[CHARACTER.GetUINameNoTooltip], dans le camp ennemi, a été mutilé au cœur de la mêlée !"
+ ck3xbl_maimed_enemy_player:0 "[CHARACTER.GetUINameNoTooltip], dans le camp ennemi, a été mutilé au cœur de la mêlée !"
+ ck3xbl_maimed_by_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été mutilé par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_maimed_by_friendly_player:0 "Vous avez été mutilé par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_maimed_by_enemy:0 "[TARGET_CHARACTER.GetUINameNoTooltip] a mutilé [CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_maimed_by_enemy_player:0 "Vous avez mutilé [CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_slain_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été tué au cœur de la mêlée !"
+ ck3xbl_slain_friendly_player:0 "Vous avez été tué au cœur de la mêlée !"
+ ck3xbl_slain_enemy:0 "[CHARACTER.GetUINameNoTooltip], dans le camp ennemi, a été tué au cœur de la mêlée !"
+ ck3xbl_slain_enemy_player:0 "[CHARACTER.GetUINameNoTooltip], dans le camp ennemi, a été tué au cœur de la mêlée !"
+ ck3xbl_slain_by_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été tué par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_slain_by_friendly_player:0 "Vous avez été tué par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_slain_by_enemy:0 "[TARGET_CHARACTER.GetUINameNoTooltip] a abattu [CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_slain_by_enemy_player:0 "Vous avez abattu [CHARACTER.GetUINameNoTooltip] au cœur de la mêlée !"
+ ck3xbl_captured_friendly:0 "[CHARACTER.GetUINameNoTooltip] a été capturé par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_captured_friendly_player:0 "Vous avez été capturé par [TARGET_CHARACTER.GetUINameNoTooltip] !"
+ ck3xbl_captured_enemy:0 "[TARGET_CHARACTER.GetUINameNoTooltip] a capturé [CHARACTER.GetUINameNoTooltip] après la bataille !"
+ ck3xbl_captured_enemy_player:0 "Vous avez capturé [CHARACTER.GetUINameNoTooltip] après la bataille !"

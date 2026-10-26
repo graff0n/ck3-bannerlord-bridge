@@ -1,3 +1,4 @@
+using CK3xBL.Core.Localization;
 using CK3xBL.Ux.Interop;
 using static CK3xBL.Ux.Interop.Native;
 
@@ -28,7 +29,7 @@ public sealed class Ck3WindowModeGuard(
 {
     public const string ModeNotice = "notice", ModeBorderless = "borderless", ModeIgnore = "ignore";
 
-    /// <summary>What the player is told about a windowed CK3.</summary>
+    /// <summary>What the player is told about a windowed CK3, in English ("notice.window_mode.text" in the current language).</summary>
     public const string WindowedNotice =
         "Crusader Kings III is in windowed mode. For a seamless switch to Bannerlord, set Window Mode to Fullscreen in its video options.";
 
@@ -59,7 +60,7 @@ public sealed class Ck3WindowModeGuard(
             {
                 if (!_notified.Add(ck3Pid)) return;
             }
-            notify(WindowedNotice);
+            notify(Loc.T("notice.window_mode.text"));   // WindowedNotice in English
         }
         catch (Exception e) { UxLog.Write($"CK3 window mode check failed (the battle goes on): {e.Message}"); }
     }

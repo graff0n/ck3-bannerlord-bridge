@@ -276,6 +276,7 @@ How the result is typed into CK3. The defaults are tested; change them only when
 | `fontFamily` | `"Fondamento"` | The font of the title and result cards. It is read from your CK3 install; a serif font is used if it is missing. |
 | `notifications` | `true` | Show tray balloons for battle events. Warnings are always shown. |
 | `ck3Windowed` | `"notice"` | What to do when CK3 runs in a window: `"notice"` (tell you once per CK3 start), `"borderless"` (stretch CK3 borderless over its monitor during play, restored when the bridge quits) or `"ignore"`. |
+| `language` | `"auto"` | The language of what you see during a battle: the title and result cards, the objective and host names in Bannerlord, the result footer and the battle notices. `"auto"` uses the language CK3 runs in (read from `pdx_settings.txt` in your CK3 user folder); or `"en"`, `"fr"`, `"de"`, `"es"`. A text missing in that language is shown in English, one by one. A language file marked `"reviewed": false` is a community translation: it is shown, and a review is welcome. The tray menu, About and the install screens stay in English. |
 
 ### `battleClock`
 

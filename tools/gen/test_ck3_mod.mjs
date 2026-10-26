@@ -395,6 +395,7 @@ const STEER_EFFECTS = 'common/scripted_effects/ck3xbl_gen_steer_slot_effects.txt
 const STEER_CONTROL = 'common/scripted_effects/ck3xbl_gen_steer_control_effects.txt';
 const SHIELD = 'common/combat_phase_events/ck3xbl_gen_shield_phase_events.txt';
 const STEER_LOC = 'localization/english/ck3xbl_gen_steer_l_english.yml';
+const STEER_LOC_FR = 'localization/french/ck3xbl_gen_steer_l_french.yml';
 
 /** Top-level definitions of a mod file: name -> node. */
 function defsOf(rel) {
@@ -427,6 +428,8 @@ test('steer.lever_modifiers_scale_by_their_variable', () => {
   const values = defsOf(STEER_VALUES);
   const leversOff = defsOf(STEER_CONTROL).get('ck3xbl_st_owner_levers_off_effect').block;
   const loc = fs.readFileSync(path.join(MOD, ...STEER_LOC.split('/')), 'utf8');
+  const locFr = fs.readFileSync(path.join(MOD, ...STEER_LOC_FR.split('/')), 'utf8');
+  assert(stripBom(locFr).startsWith('l_french:\n'), `${STEER_LOC_FR} does not start with l_french:`);
   for (const lever of LEVERS) {
     for (const [dir, sign] of [['up', 1], ['down', -1]]) {
       const name = `ck3xbl_st_${lever.key}_${dir}`;
@@ -440,6 +443,9 @@ test('steer.lever_modifiers_scale_by_their_variable', () => {
       assert(leversOff.some((n) => n.key === 'remove_variable' && n.value === name), `the levers-off effect keeps the variable ${name}`);
       assert(leversOff.some((n) => n.key === 'remove_character_modifier' && n.value === name), `the levers-off effect keeps ${name}`);
       assert(loc.includes(` ${name}:0 "${lever[dir]}"`), `loc name of ${name} is not "${lever[dir]}"`);
+      const fr = new RegExp(`^ ${name}:0 "([^"]+)"$`, 'm').exec(locFr);
+      assert(fr && fr[1] !== lever[dir], `${name} has no French name in ${STEER_LOC_FR}`);
+      assert(locFr.includes(` ${name}_desc:0 "`), `${name}_desc has no French localization`);
     }
   }
   const hard = modifiers.get('ck3xbl_st_hard');
@@ -453,6 +459,7 @@ test('steer.lever_modifiers_scale_by_their_variable', () => {
       assert(Number(field(cover, tag).value) === HARD, `ck3xbl_st_hard_cover: ${tag} is not ${HARD}`);
     }
     assert(loc.includes(' ck3xbl_st_hard_cover:0 ') && loc.includes(' ck3xbl_st_hard_cover_desc:0 '), 'ck3xbl_st_hard_cover has no localization');
+    assert(locFr.includes(' ck3xbl_st_hard_cover:0 ') && locFr.includes(' ck3xbl_st_hard_cover_desc:0 '), 'ck3xbl_st_hard_cover has no French localization');
   }
   const expected = 2 * LEVERS.length + 1 + (HARD_COVER ? 1 : 0);
   assert(modifiers.size === expected, `${modifiers.size} steering modifiers, expected ${expected}`);
@@ -1774,6 +1781,7 @@ function replaceOnce(rel, from, to) {
 const SNAP = 'common/scripted_effects/ck3xbl_snapshot_effects.txt';
 const TRIG = 'common/scripted_triggers/ck3xbl_triggers.txt';
 const EVENTS = 'events/ck3xbl_battle_events.txt';
+const LOC_FR = 'localization/french/ck3xbl_l_french.yml';
 const STEER_HAND = 'common/scripted_effects/ck3xbl_steer_effects.txt';
 const CLOCK_EVENTS = 'events/ck3xbl_clock_events.txt';
 
@@ -1804,6 +1812,10 @@ const MUTATIONS = [
     'no script value ck3xbl_st_dmg_up_scal'],
   ['modifier without localization', replaceOnce(STEER_LOC, ' ck3xbl_st_hard_desc:0', ' ck3xbl_st_hard_dsc:0'),
     'missing localization key ck3xbl_st_hard_desc'],
+  ['key missing in French', replaceOnce(LOC_FR, ' ck3xbl_battle.0003.a:0 "Ainsi soit-il."', ''),
+    'missing french localization key ck3xbl_battle.0003.a'],
+  ['French text with other [...] than English', replaceOnce(LOC_FR, '[ck3xbl_enemy_leader.GetTitledFirstName] près de', '[ck3xbl_enemy_leader.GetFirstName] près de'),
+    'ck3xbl_battle.0001.desc.attacking: [...] differ from english'],
   ['unknown character modifier', insertAfter(SNAP, 'ck3xbl_save_char_values_effect = {', '\tremove_character_modifier = ck3xbl_st_dmg_upp'),
     'unknown character modifier ck3xbl_st_dmg_upp'],
   ['root in a battle clock value', insertAfter(STEER_VALUES, 'ck3xbl_cday_marks_value = {', '\tif = { limit = { root = { is_ai = no } } add = 1 }'),

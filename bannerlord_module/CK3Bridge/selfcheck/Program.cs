@@ -56,6 +56,7 @@ namespace CK3Bridge.SelfCheck
             Run(nameof(FileTransport), FileTransport);
             Run(nameof(CardWording), CardWording);
             Run(nameof(CardTextsFromPresentation), CardTextsFromPresentation);
+            Run(nameof(ModuleTextsInResultFooter), ModuleTextsInResultFooter);
             Run(nameof(GlyphFoldingWithGameFont), GlyphFoldingWithGameFont);
             Run(nameof(PngHeaders), PngHeaders);
             Run(nameof(HostGateDecisions), HostGateDecisions);
@@ -688,6 +689,53 @@ namespace CK3Bridge.SelfCheck
                 CardText.CountdownFooter("X is won", 7), "countdown footer");
             Equal("X is lost  ·  [Enter] Return to your realm", CardText.WaitFooter("X is lost"), "wait footer");
             Equal("Defeat the enemy host", CardText.DefaultObjective(""), "objective without a name");
+        }
+
+        /// <summary>presentation.texts (PROTOCOL.md §3.2): the result footer in the player's language, English without it.</summary>
+        private static void ModuleTextsInResultFooter()
+        {
+            // The request: the field absent (an older bridge), null (an English request), or set (another language).
+            const string head = @"{ ""protocol"": 2, ""id"": ""b1_t"", ""presentation"": { ""title"": ""X""";
+            Check(ProtocolJson.ToObject<BattleRequest>(ProtocolJson.ParseObject(head + " } }")).Presentation.Texts == null, "texts absent: null");
+            Check(ProtocolJson.ToObject<BattleRequest>(ProtocolJson.ParseObject(head + @", ""texts"": null } }")).Presentation.Texts == null, "texts null: null");
+            var sent = ProtocolJson.ToObject<BattleRequest>(ProtocolJson.ParseObject(head + @", ""texts"": { ""outcomeWon"": ""{title} est gagnée"" } } }"));
+            Equal("{title} est gagnée", sent.Presentation.Texts?.OutcomeWon, "texts read");
+            // A module without the field ignores the member (MissingMemberHandling.Ignore): read into a type that lacks it.
+            Equal(7, ProtocolJson.ToObject<ScaleInfo>(ProtocolJson.ParseObject(@"{ ""battleSize"": 7, ""texts"": { ""outcomeWon"": ""x"" } }")).BattleSize,
+                "an unknown member is ignored");
+
+            // No texts: exactly the English of CardWording.
+            Equal("The Battle of Orangallu is won", CardText.Outcome("The Battle of Orangallu", true, false, null), "null texts: won");
+            Equal("The battle is lost", CardText.Outcome("Will the line hold?", false, true, null), "null texts: question title");
+            Equal("X is won  ·  Returning to your realm in 7  ·  [Enter] now  ·  [Space] stay on the field",
+                CardText.CountdownFooter("X is won", 7, null), "null texts: countdown footer");
+            Equal("X is lost  ·  [Enter] Return to your realm", CardText.WaitFooter("X is lost", null), "null texts: wait footer");
+
+            // The French templates of bridge/data/i18n/fr.json (module.*).
+            var fr = new ModuleTexts
+            {
+                TheBattle = "La bataille",
+                OutcomeWon = "{title} est gagnée",
+                OutcomeLost = "{title} est perdue",
+                OutcomeOver = "{title} est terminée",
+                CountdownFooter = "{outcome}  ·  Retour à votre royaume dans {seconds}  ·  [Entrée] maintenant  ·  [Espace] rester sur le terrain",
+                WaitFooter = "{outcome}  ·  [Entrée] Retour à votre royaume",
+            };
+            Equal("Bataille d'Angers est gagnée", CardText.Outcome("Bataille d'Angers", true, false, fr), "French: won");
+            Equal("Bataille d'Angers est perdue", CardText.Outcome("Bataille d'Angers", false, true, fr), "French: lost");
+            Equal("La bataille est terminée", CardText.Outcome("", false, false, fr), "French: undecided, no title");
+            Equal("La bataille est gagnée", CardText.Outcome("Des renforts arrivent !", true, false, fr), "French: second clash uses TheBattle");
+            Equal("Bataille d'Angers est gagnée  ·  Retour à votre royaume dans 7  ·  [Entrée] maintenant  ·  [Espace] rester sur le terrain",
+                CardText.CountdownFooter("Bataille d'Angers est gagnée", 7, fr), "French: countdown footer with the seconds");
+            Equal("Bataille d'Angers est perdue  ·  [Entrée] Retour à votre royaume", CardText.WaitFooter("Bataille d'Angers est perdue", fr), "French: wait footer");
+
+            // A template without its required placeholder (or empty) keeps the English.
+            var broken = new ModuleTexts { OutcomeWon = "gagnée", CountdownFooter = "Retour dans {seconds}", WaitFooter = "", TheBattle = "" };
+            Equal("The Battle of Orangallu is won", CardText.Outcome("The Battle of Orangallu", true, false, broken), "no {title}: English");
+            Equal("The battle is lost", CardText.Outcome("Reinforcements arrive!", false, true, broken), "empty template: English");
+            Equal("X is won  ·  Returning to your realm in 7  ·  [Enter] now  ·  [Space] stay on the field",
+                CardText.CountdownFooter("X is won", 7, broken), "no {outcome}: English countdown");
+            Equal("X is lost  ·  [Enter] Return to your realm", CardText.WaitFooter("X is lost", broken), "empty wait footer: English");
         }
 
         private static void CardTextsFromPresentation()

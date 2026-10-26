@@ -93,14 +93,26 @@ namespace CK3Bridge
         /// exclamation or a question rather than a battle name (the second clash's "Reinforcements arrive!",
         /// PROTOCOL.md §14.6) reads "The battle is won".
         /// </summary>
-        public static string Outcome(string title, bool playerWon, bool playerLost)
+        /// <param name="texts">presentation.texts (PROTOCOL.md §3.2): the bridge's templates in the player's language; null, or a
+        /// template that is empty or lacks {title}, keeps the English.</param>
+        public static string Outcome(string title, bool playerWon, bool playerLost, ModuleTexts texts = null)
         {
             bool named = !string.IsNullOrEmpty(title) && !title.EndsWith("!", StringComparison.Ordinal) &&
                          !title.EndsWith("?", StringComparison.Ordinal);
+            string template = texts == null ? null : playerWon ? texts.OutcomeWon : playerLost ? texts.OutcomeLost : texts.OutcomeOver;
+            if (Usable(template, "{title}"))
+            {
+                string localSubject = named ? title : !string.IsNullOrEmpty(texts.TheBattle) ? texts.TheBattle : "The battle";
+                return template.Replace("{title}", localSubject);
+            }
             string subject = named ? title : "The battle";
             string verdict = playerWon ? "won" : playerLost ? "lost" : "over";
             return subject + " is " + verdict;
         }
+
+        /// <summary>A template from presentation.texts that can be used: not empty and with its required placeholder.</summary>
+        private static bool Usable(string template, string placeholder) =>
+            !string.IsNullOrEmpty(template) && template.IndexOf(placeholder, StringComparison.Ordinal) >= 0;
 
         /// <summary>Seconds shown in the countdown: rounded up, never negative.</summary>
         public static int SecondsShown(float secondsLeft)
@@ -110,12 +122,16 @@ namespace CK3Bridge
         }
 
         /// <summary>Result footer while the return countdown runs.</summary>
-        public static string CountdownFooter(string outcome, int seconds) =>
-            outcome + "  ·  Returning to your realm in " + seconds.ToString(CultureInfo.InvariantCulture) +
-            "  ·  [Enter] now  ·  [Space] stay on the field";
+        public static string CountdownFooter(string outcome, int seconds, ModuleTexts texts = null)
+        {
+            string s = seconds.ToString(CultureInfo.InvariantCulture);
+            if (Usable(texts?.CountdownFooter, "{outcome}")) return texts.CountdownFooter.Replace("{outcome}", outcome).Replace("{seconds}", s);
+            return outcome + "  ·  Returning to your realm in " + s + "  ·  [Enter] now  ·  [Space] stay on the field";
+        }
 
         /// <summary>Result footer when the player stays on the field (or the countdown is disabled).</summary>
-        public static string WaitFooter(string outcome) => outcome + "  ·  [Enter] Return to your realm";
+        public static string WaitFooter(string outcome, ModuleTexts texts = null) =>
+            Usable(texts?.WaitFooter, "{outcome}") ? texts.WaitFooter.Replace("{outcome}", outcome) : outcome + "  ·  [Enter] Return to your realm";
     }
 
     /// <summary>

@@ -28,6 +28,7 @@ using CK3xBL.Core.Bannerlord;
 using CK3xBL.Core.Ck3;
 using CK3xBL.Core.Delivery;
 using CK3xBL.Core.Diagnostics;
+using CK3xBL.Core.Localization;
 using CK3xBL.Core.Logs;
 using CK3xBL.Core.Model;
 using CK3xBL.Protocol;
@@ -325,8 +326,8 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         if (b is null)
         {
             if (c.Choice == Ck3Choice.Field)
-                Notify(_unstageable.Contains(c.Bid) ? "This battle cannot be fought in Bannerlord" : "No Bannerlord battle is prepared",
-                    "Choose 'Let the battle run its course' in Crusader Kings III.", NoticeKind.Warning);
+                Notify(Loc.T(_unstageable.Contains(c.Bid) ? "notice.cannot_fight.title" : "notice.not_prepared.title"),
+                    ChooseRunCourse(), NoticeKind.Warning);
             else if (_steering.TryGetValue(c.Bid, out var s) && s.State == SteeringState.Awaiting)
                 Close(s, $"the player chose {c.Kind} instead of '{Ck3Texts.DustSettlesOption}'");   // after IN|OK, before the click
             return;
@@ -489,21 +490,14 @@ public sealed class BattleOrchestrator : IAsyncDisposable
     /// <summary>ST|DONE: CK3 has finished the battle and set the armies' end state.</summary>
     private void Done(SteeringBattle s, int reason)
     {
-        string how = reason switch
-        {
-            1 => "CK3 decided it as in Bannerlord.",
-            2 => "CK3 inflicted the Bannerlord losses and fights on by itself.",
-            3 => "The battle ended before CK3 had inflicted every Bannerlord loss; the rest was applied directly.",
-            4 => "The battle was over (or too old) before CK3 could fight it out; the losses were applied directly.",
-            5 => "CK3 gave the victory to the other side.",
-            6 => "CK3 did not end the battle when asked; it was handed back to CK3.",
-            _ => $"Steering finished (reason {reason}).",
-        };
+        string how = reason is >= 1 and <= 6 ? Loc.T($"steer.done.{reason}") : Loc.T("steer.done.other", ("reason", reason));
         var (fallen, target, ours, ourTarget) = s.PlayerView();
         string numbers = fallen is { } f && target is { } t
-            ? $" Enemy dead counted by CK3: {f:N0} of {t:N0}" + (ours is { } o && ourTarget is { } u ? $"; ours: {o:N0} of {u:N0}." : ".")
+            ? " " + Loc.T("notice.over.enemy_dead", ("fallen", $"{f:N0}"), ("target", $"{t:N0}")) +
+              (ours is { } o && ourTarget is { } u ? "; " + Loc.T("notice.over.ours", ("ours", $"{o:N0}"), ("ourTarget", $"{u:N0}")) + "." : ".")
             : "";
-        Close(s, $"ST|DONE reason {reason}", ($"{s.BattleName} is over", how + numbers, reason == 6 ? NoticeKind.Warning : NoticeKind.Info));
+        Close(s, $"ST|DONE reason {reason}",
+            (Loc.T("notice.over.title", ("battle", s.BattleName)), how + numbers, reason == 6 ? NoticeKind.Warning : NoticeKind.Info));
     }
 
     /// <summary>Removes a steered battle and archives its trace (steering.json).</summary>
@@ -636,13 +630,13 @@ public sealed class BattleOrchestrator : IAsyncDisposable
                 BeginReturn(b);
                 break;
             case BannerlordStates.Error when _phase is BattlePhase.Entering or BattlePhase.Fighting or BattlePhase.ResultShown:
-                Fail(b, $"Bannerlord reported an error: {s.Error}");
+                Fail(b, Said.Of("fail.bannerlord_error", ("error", s.Error)));
                 break;
             case BannerlordStates.Error when _phase is BattlePhase.Preparing or BattlePhase.Offered or BattlePhase.WaitingToEnter:
                 Unstageable(b, s.Error);
                 break;
             case BannerlordStates.Cancelled when _phase is BattlePhase.Entering or BattlePhase.Fighting:
-                Fail(b, "Bannerlord cancelled the battle.");
+                Fail(b, Said.Of("fail.bannerlord_cancelled"));
                 break;
         }
     }
@@ -667,7 +661,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
                 break;
             case "aborted" or "cancelled" or "error" when _phase == BattlePhase.Entering:
             case "cancelled" or "error" when _phase is BattlePhase.Fighting or BattlePhase.ResultShown:
-                Fail(b, r.Error is null ? $"Bannerlord ended the battle ({r.Status})." : $"Bannerlord reported an error: {r.Error}");
+                Fail(b, r.Error is null ? Said.Of("fail.bannerlord_ended", ("status", r.Status)) : Said.Of("fail.bannerlord_error", ("error", r.Error)));
                 break;
             case "error" when _phase is BattlePhase.Preparing or BattlePhase.Offered or BattlePhase.WaitingToEnter:
                 Unstageable(b, r.Error);
@@ -681,9 +675,8 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         _unstageable.Add(b.Bid);
         bool chosen = b.Choice == Ck3Choice.Field;
         Drop(b, $"Bannerlord could not load it: {error}", cancelBannerlord: false);
-        Notify("This battle cannot be fought in Bannerlord", (error is null ? "" : error + "\n") + (chosen
-            ? "Choose 'Let the battle run its course' in Crusader Kings III."
-            : "CK3 will resolve it: choose 'Let my commanders decide the day'."), NoticeKind.Warning);
+        Notify(Loc.T("notice.cannot_fight.title"), (error is null ? "" : error + "\n") + (chosen ? ChooseRunCourse() : Ck3WillResolve()),
+            NoticeKind.Warning);
     }
 
     private void OnBannerlordReady()
@@ -730,7 +723,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
                 _s.Journal.Warn(Area, $"{b.Id}: {reason}; keeping the preload");
                 break;
             case BattlePhase.Entering or BattlePhase.Fighting or BattlePhase.ResultShown:
-                Fail(b, exited ? "Bannerlord closed unexpectedly." : "Bannerlord stopped responding.", cancelBannerlord: !exited);
+                Fail(b, Said.Of(exited ? "fail.bannerlord_closed" : "fail.bannerlord_unresponsive"), cancelBannerlord: !exited);
                 break;
             // Returning and later: the outcome is (being) built from result.json; Bannerlord is no longer needed.
         }
@@ -746,10 +739,11 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         switch (_phase)
         {
             case BattlePhase.Preparing or BattlePhase.Offered or BattlePhase.WaitingToEnter:
-                Abandon(b, "abort hotkey", ("Battle handed back to CK3", "Choose 'Let my commanders decide the day' (or 'Let the battle run its course')."));
+                Abandon(b, "abort hotkey", (Loc.T("notice.handed_back.title"),
+                    Loc.T("notice.handed_back.text", ("commanders", Ck3Texts.CommandersDecide), ("run_course", Ck3Texts.RunCourse))));
                 break;
             case BattlePhase.Entering:
-                Abandon(b, "abort hotkey", ("Battle cancelled", "Choose 'Let the battle run its course' in Crusader Kings III."));
+                Abandon(b, "abort hotkey", (Loc.T("notice.cancelled.title"), ChooseRunCourse()));
                 break;
             case BattlePhase.Fighting when !b.AbortRequested:
                 b.AbortRequested = true;
@@ -761,7 +755,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
                 break;
             case BattlePhase.Returning or BattlePhase.AwaitingReturnFocus or BattlePhase.Delivering:
                 Abandon(b, "abort hotkey during the return",
-                    ("Result not delivered", "Choose 'Let the battle run its course' in Crusader Kings III."), cancelBannerlord: false);
+                    (Loc.T("notice.not_delivered.title"), ChooseRunCourse()), cancelBannerlord: false);
                 break;
         }
     }
@@ -785,13 +779,13 @@ public sealed class BattleOrchestrator : IAsyncDisposable
             case BattlePhase.WaitingToEnter:
                 if (CanEnter(out _)) BeginEnter(b);
                 else if ((!_s.Bannerlord.IsRunning || _s.Bannerlord.Status is null) && now - b.WaitingSince > _o.EnterTimeout)
-                    Fail(b, _s.Bannerlord.Problem ?? "Bannerlord did not start.");
+                    Fail(b, _s.Bannerlord.Problem is { } problem ? Said.Raw(problem) : Said.Of("fail.bannerlord_not_started"));
                 break;
             case BattlePhase.Entering when now - b.EnteringSince > _o.EnterTimeout:
-                Fail(b, "Bannerlord did not show the battle in time.");
+                Fail(b, Said.Of("fail.not_shown_in_time"));
                 break;
             case BattlePhase.Fighting when b.AbortRequested && now - b.AbortRequestedAt > _o.AbortTimeout:
-                Fail(b, "Bannerlord did not end the battle after the abort request.");
+                Fail(b, Said.Of("fail.abort_ignored"));
                 break;
             case BattlePhase.AwaitingReturnFocus when _s.Ck3.Find() is { } ck3 && _s.Desktop.ForegroundWindow == ck3.Hwnd:
                 BeginDeliver(b, showCard: true);
@@ -829,13 +823,13 @@ public sealed class BattleOrchestrator : IAsyncDisposable
     {
         if (_s.Ck3.Find() is not { } ck3 || _s.Desktop.ForegroundWindow != ck3.Hwnd)
         {
-            why = "Your host awaits: return to Crusader Kings III to take the field.";
+            why = Loc.T("why.return_to_ck3");
             return false;
         }
         var status = _s.Bannerlord.Status?.Status;
         if (!_s.Bannerlord.IsRunning || status is null || status == BannerlordStates.Booting)
         {
-            why = _s.Bannerlord.Problem ?? "Bannerlord is still starting; the battle begins as soon as it is ready.";
+            why = _s.Bannerlord.Problem ?? Loc.T("why.bannerlord_starting");   // Problem is an install text: English
             return false;
         }
         why = "";
@@ -850,7 +844,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
             {
                 b.WaitingSince = DateTime.UtcNow;
                 SetPhase(BattlePhase.WaitingToEnter);
-                Notify("The Armies Clash", why);
+                Notify(Loc.T("notice.armies_clash.title"), why);
             }
             return;
         }
@@ -884,17 +878,32 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         if (notice is { } n) Notify(n.Title, n.Text);
     }
 
-    /// <summary>Something went wrong while presenting: undo everything visible and tell the player how CK3 continues.</summary>
-    private void Fail(Battle b, string reason, bool cancelBannerlord = true)
+    /// <summary>Something went wrong while presenting: undo everything visible and tell the player how CK3 continues. The journal
+    /// gets the English reason, the notice the player's language.</summary>
+    private void Fail(Battle b, Said reason, bool cancelBannerlord = true)
     {
-        _s.Journal.Warn(Area, $"{b.Id}: {reason}");
+        _s.Journal.Warn(Area, $"{b.Id}: {reason.En}");
         bool presenting = IsPresenting(_phase);
         bool battleOver = _phase is BattlePhase.Returning or BattlePhase.AwaitingReturnFocus or BattlePhase.Delivering;
-        Drop(b, reason, cancelBannerlord && !battleOver && (b.Preloaded || presenting));
+        Drop(b, reason.En, cancelBannerlord && !battleOver && (b.Preloaded || presenting));
         if (presenting) StartRecovery(focusCk3: true);
-        Notify("The battle could not continue in Bannerlord", $"{reason}\nChoose 'Let the battle run its course' in Crusader Kings III.",
-            NoticeKind.Warning);
+        Notify(Loc.T("notice.could_not_continue.title"), reason.Shown + "\n" + ChooseRunCourse(), NoticeKind.Warning);
     }
+
+    /// <summary>A reason both journaled (English) and shown to the player (current language).</summary>
+    private readonly record struct Said(string En, string Shown)
+    {
+        public static Said Of(string key, params (string Name, object? Value)[] args) => new(Loc.En(key, args), Loc.T(key, args));
+
+        /// <summary>A text that has no key (e.g. an install problem, English everywhere).</summary>
+        public static Said Raw(string text) => new(text, text);
+    }
+
+    /// <summary>"Choose 'Let the battle run its course' in Crusader Kings III."</summary>
+    private static string ChooseRunCourse() => Loc.T("notice.choose_option_in_ck3", ("option", Ck3Texts.RunCourse));
+
+    /// <summary>"CK3 will resolve it: choose 'Let my commanders decide the day'."</summary>
+    private static string Ck3WillResolve() => Loc.T("notice.ck3_will_resolve", ("option", Ck3Texts.CommandersDecide));
 
     /// <summary>Removes a battle. Queued battles were never sent to Bannerlord; for the active one, Bannerlord is told to cancel
     /// (when asked) and the next queued battle is activated.</summary>
@@ -972,11 +981,9 @@ public sealed class BattleOrchestrator : IAsyncDisposable
             {
                 _unstageable.Add(b.Bid);
                 Drop(b, "preparation failed", cancelBannerlord: false);
-                Notify("This battle cannot be fought in Bannerlord", b.Choice == Ck3Choice.Field
-                    ? "Choose 'Let the battle run its course' in Crusader Kings III."
-                    : "CK3 will resolve it: choose 'Let my commanders decide the day'.", NoticeKind.Warning);
+                Notify(Loc.T("notice.cannot_fight.title"), b.Choice == Ck3Choice.Field ? ChooseRunCourse() : Ck3WillResolve(), NoticeKind.Warning);
             }
-            else Fail(b, $"Something went wrong ({d.Name}: {d.Error.Message}).");
+            else Fail(b, Said.Of("fail.something_wrong", ("activity", d.Name), ("message", d.Error.Message)));
             return;
         }
 
@@ -1036,9 +1043,9 @@ public sealed class BattleOrchestrator : IAsyncDisposable
             default:
                 if (result == DeliveryResult.KeysHeld) StartRecovery(focusCk3: false);   // the card was left up for the retries
                 Drop(b, "delivery failed", cancelBannerlord: false);
-                Notify("The result could not be entered into CK3",
-                    (result == DeliveryResult.KeysHeld ? "A key or mouse button stayed held. " : "") +
-                    "Choose 'Let the battle run its course' in Crusader Kings III. The battle record is in the bridge log folder.",
+                Notify(Loc.T("notice.not_entered.title"),
+                    (result == DeliveryResult.KeysHeld ? Loc.T("notice.not_entered.key_held") + " " : "") +
+                    Loc.T("notice.not_entered.text", ("option", Ck3Texts.RunCourse)),
                     NoticeKind.Warning);
                 break;
         }
@@ -1048,7 +1055,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
     {
         SetPhase(BattlePhase.AwaitingReturnFocus);
         StartRecovery(focusCk3: false);   // never trap the player behind a covered screen
-        Notify("The dispatch has arrived", $"Return to Crusader Kings III and click '{Ck3Texts.DustSettlesOption}' to receive the outcome.");
+        Notify(Loc.T("notice.dispatch.title"), Loc.T("notice.dispatch.text", ("option", Ck3Texts.DustSettles)));
     }
 
     /// <summary>Builds the request. A reinforcement clash (PROTOCOL §14.6) is planned from the parent's end state: the mapper caps
@@ -1380,7 +1387,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         bool attacker = b.Request?.PlayerSide == "attacker";
         return new TitleCard
         {
-            Title = p?.Title ?? (b.Snapshot.CombatName.Length > 0 ? b.Snapshot.CombatName : $"The Battle of {b.Snapshot.Location.ProvinceName}"),
+            Title = p?.Title ?? (b.Snapshot.CombatName.Length > 0 ? b.Snapshot.CombatName : Loc.T("title.fallback", ("place", b.Snapshot.Location.ProvinceName))),
             Subtitle = p?.Subtitle ?? "",
             Detail = p?.Detail ?? "",
             LeftCoaPng = attacker ? p?.AttackerCoaPng : p?.DefenderCoaPng,
@@ -1394,13 +1401,16 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         string place = b.Snapshot.Location.ProvinceName.Length > 0 ? b.Snapshot.Location.ProvinceName : b.Snapshot.CombatName;
         var lines = o.Summary.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var card = TitleCardFor(b, 0);
-        card.Title = o.OutcomeCode == 3 ? $"The fighting at {place} is broken off" : o.PlayerWon ? $"Victory at {place}" : $"Defeat at {place}";
-        card.Subtitle = lines.Length > 0 ? lines[0] : $"Our losses {o.MyLost:N0} · Enemy losses {o.EnemyLost:N0}";
+        card.Title = Loc.T(o.OutcomeCode == 3 ? "result.broken_off" : o.PlayerWon ? "result.victory" : "result.defeat", ("place", place));
+        // The card's style follows the outcome, never the (translated) title text.
+        card.Defeat = o.OutcomeCode != 3 && !o.PlayerWon;
+        card.Subtitle = lines.Length > 0 ? lines[0]
+            : Loc.T("result.losses_fallback", ("mine", Loc.Number(o.MyLost)), ("theirs", Loc.Number(o.EnemyLost)));
         // The outcome reaches CK3 when the player clicks the option of its event 0002; the card names it as the mod does. With the
         // battle clock CK3 then fights the result out over the next days, which only happens while the game runs.
         card.Detail = string.Join("  ·  ", lines.Skip(1).Append(o.PayloadVersion == KeypadLayout.SteerPayloadVersion
-            ? $"The battle continues in Crusader Kings III. Click '{Ck3Texts.DustSettlesOption}', then resume the game."
-            : $"Click '{Ck3Texts.DustSettlesOption}' in Crusader Kings III"));
+            ? Loc.T("result.continue_with_clock", ("option", Ck3Texts.DustSettles))
+            : Loc.T("result.click_option", ("option", Ck3Texts.DustSettles))));
         return card;
     }
 
@@ -1499,7 +1509,7 @@ public sealed class BattleOrchestrator : IAsyncDisposable
         public int? CombatDay, AttackerKilled, DefenderKilled, AttackerTarget, DefenderTarget;
         private readonly List<SteeringRecord> _records = new();
 
-        public string BattleName => Snapshot.CombatName.Length > 0 ? Snapshot.CombatName : $"The battle at {Snapshot.Location.ProvinceName}";
+        public string BattleName => Snapshot.CombatName.Length > 0 ? Snapshot.CombatName : Loc.T("battle.fallback_name", ("place", Snapshot.Location.ProvinceName));
 
         public void Record(SteeringTrace e)
         {

@@ -25,6 +25,7 @@
 
 using CK3xBL.Core.Abstractions;
 using CK3xBL.Core.Delivery;
+using CK3xBL.Core.Localization;
 using CK3xBL.Core.Model;
 using CK3xBL.Mapping.Buffs;
 using CK3xBL.Mapping.Data;
@@ -77,7 +78,7 @@ public sealed class OutcomeBuilder
         string place = PresentationWriter.PlaceName(_battle);
         if (code == 4)
         {
-            outcome.Summary = $"The Battle of {place} will be decided in CK3.";
+            outcome.Summary = Loc.T("outcome.decided_in_ck3", ("place", place));
             return outcome;
         }
 
@@ -403,19 +404,15 @@ public sealed class OutcomeBuilder
     {
         int myLost = o.MyLost - (earlier?.MyLost ?? 0), enemyLost = o.EnemyLost - (earlier?.EnemyLost ?? 0);
         int myKills = o.MyKills - (earlier?.MyKills ?? 0);
-        string mine = Text.Number(myLost), theirs = Text.Number(enemyLost);
-        string line = code switch
-        {
-            3 => $"The battle at {place} was broken off: {mine} of your men and {theirs} of the enemy fell.",
-            _ when o.PlayerWon => $"Victory at {place}: {theirs} of the enemy fell for {mine} of your men.",
-            _ => $"Defeat at {place}: {mine} of your men fell, and {theirs} of the enemy.",
-        };
+        string mine = Loc.Number(myLost), theirs = Loc.Number(enemyLost);
+        string key = code == 3 ? "outcome.broken_off" : o.PlayerWon ? "outcome.victory" : "outcome.defeat";
+        string line = Loc.T(key, ("place", place), ("mine", mine), ("theirs", theirs));
         if (myKills > 0)
-            line += myKills == 1 ? " You struck down one foe yourself." : $" You struck down {Text.Number(myKills)} foes yourself.";
+            line += " " + (myKills == 1 ? Loc.T("outcome.kills_one") : Loc.T("outcome.kills_many", ("count", Loc.Number(myKills))));
         if (earlier is not null)
         {
-            string clashes = o.Clash <= 2 ? "both clashes" : $"all {o.Clash} clashes";
-            line += $" Over {clashes}: {Text.Number(o.MyLost)} of your men and {Text.Number(o.EnemyLost)} of the enemy.";
+            string clashes = o.Clash <= 2 ? Loc.T("outcome.clashes_both") : Loc.T("outcome.clashes_all", ("count", Loc.Number(o.Clash)));
+            line += " " + Loc.T("outcome.over_clashes", ("clashes", clashes), ("mine", Loc.Number(o.MyLost)), ("theirs", Loc.Number(o.EnemyLost)));
         }
         return line;
     }

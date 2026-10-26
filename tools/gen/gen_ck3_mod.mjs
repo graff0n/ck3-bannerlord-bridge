@@ -21,7 +21,7 @@
 //   tools/gen/knights/               the renderers shared with the knights tools (knight_eff_emit.mjs, accolade_emit.mjs,
 //                                    emit_artifacts.mjs), so the mod prints exactly their script
 // Outputs: the files listed in OUTPUTS under ck3_mod/ck3xbl, each starting with GENERATED_MARK (a localization file
-// right after its l_english: line). Files are rewritten
+// right after its l_<language>: line). Files are rewritten
 // only when their content changes, and generated files that are no longer produced are deleted.
 //
 // Usage: node tools/gen/gen_ck3_mod.mjs [--check]
@@ -116,11 +116,11 @@ function newScript(purpose, inputs = DATA_INPUTS) {
 
 /**
  * True for a file this generator wrote: the mark is the first line, or, in a localization file (whose first line must be
- * `l_english:`), the first entry after it.
+ * `l_<language>:`), the first entry after it.
  */
 function isGenerated(text) {
   const lines = stripBom(text).split(/\r?\n/);
-  return lines[0] === GENERATED_MARK || (lines[0] === 'l_english:' && (lines[1] || '').trim() === GENERATED_MARK);
+  return lines[0] === GENERATED_MARK || (/^l_[a-z_]+:$/.test(lines[0]) && (lines[1] || '').trim() === GENERATED_MARK);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1607,21 +1607,64 @@ function genShieldPhaseEvents(d, st = STEERING) {
   return s.text();
 }
 
-/** Localization of the steering modifiers. The first line of a localization file must be l_english:, so the mark follows it. */
-function genSteerLoc(d, st = STEERING) {
-  const lines = ['l_english:', ` ${GENERATED_MARK}`, ` # Steering modifiers of the battle clock (docs/PROTOCOL.md 14). Inputs: ${STEER_INPUTS}.`];
+/**
+ * Texts of the steering modifiers per localization language. English is the reference: its lever titles are steering.mjs's
+ * (`m.title`); another language names each lever direction by its scale-form modifier name (a ladder step adds its percent).
+ */
+const STEER_TEXTS = {
+  english: {
+    title: (m) => m.title,
+    leverDesc: 'The fighting at this battle runs to the outcome decided on the field in Bannerlord.',
+    hard: 'No Quarter',
+    hardDesc: 'This battle is fought to the outcome decided on the field in Bannerlord: whoever falls stays down.',
+    hardCover: 'No Quarter for the Leaderless',
+    hardCoverDesc: 'The enemy host has no commander to rally it: whoever falls on either side stays down.',
+    scaleDesc: '\\t#weak Set day by day by the battle clock#!',
+  },
+  french: {
+    titles: {
+      ck3xbl_st_dmg_up: 'Assaut féroce',
+      ck3xbl_st_dmg_down: 'Assaut hésitant',
+      ck3xbl_st_tough_up: 'Rangs obstinés',
+      ck3xbl_st_tough_down: 'Rangs vacillants',
+      ck3xbl_st_knight_up: "Chevaliers à l'offensive",
+      ck3xbl_st_knight_down: 'Chevaliers en retrait',
+    },
+    leverDesc: "Les combats de cette bataille suivent l'issue décidée sur le terrain dans Bannerlord.",
+    hard: 'Pas de quartier',
+    hardDesc: "Cette bataille se livre jusqu'à l'issue décidée sur le terrain dans Bannerlord : qui tombe ne se relève pas.",
+    hardCover: 'Pas de quartier pour les sans-chef',
+    hardCoverDesc: "L'ost ennemi n'a aucun commandant pour le rallier : qui tombe, d'un camp comme de l'autre, ne se relève pas.",
+    scaleDesc: "\\t#weak Ajusté jour après jour par l'horloge de bataille#!",
+  },
+};
+
+/** The title of lever modifier `m` in `texts`: its own (English), or the table entry of its lever direction. */
+function steerTitle(texts, m) {
+  if (texts.title) return texts.title(m);
+  const dir = m.dir ?? (m.pp > 0 ? 'up' : 'down');
+  const title = texts.titles[`ck3xbl_st_${m.lever}_${dir}`];
+  if (!title) throw new Error(`gen_ck3_mod: no ${dir} title for steering lever ${m.lever}`);
+  return m.pp === undefined ? title : `${title} (${percent(m.pp)})`;
+}
+
+/** Localization of the steering modifiers in `lang`. The first line of a localization file must be l_<language>:, so the mark follows it. */
+function genSteerLoc(d, st = STEERING, lang = 'english') {
+  const texts = STEER_TEXTS[lang];
+  if (!texts) throw new Error(`gen_ck3_mod: no steering texts for ${lang}`);
+  const lines = [`l_${lang}:`, ` ${GENERATED_MARK}`, ` # Steering modifiers of the battle clock (docs/PROTOCOL.md 14). Inputs: ${STEER_INPUTS}.`];
   const entry = (key, text) => lines.push(` ${key}:0 "${text}"`);
   for (const m of leverModifiers(st)) {
-    entry(m.name, m.title);
-    entry(`${m.name}_desc`, 'The fighting at this battle runs to the outcome decided on the field in Bannerlord.');
+    entry(m.name, steerTitle(texts, m));
+    entry(`${m.name}_desc`, texts.leverDesc);
   }
-  entry(HARD_MODIFIER, 'No Quarter');
-  entry(`${HARD_MODIFIER}_desc`, 'This battle is fought to the outcome decided on the field in Bannerlord: whoever falls stays down.');
+  entry(HARD_MODIFIER, texts.hard);
+  entry(`${HARD_MODIFIER}_desc`, texts.hardDesc);
   if (st.HARD_COVER) {
-    entry(HARD_COVER_MODIFIER, 'No Quarter for the Leaderless');
-    entry(`${HARD_COVER_MODIFIER}_desc`, 'The enemy host has no commander to rally it: whoever falls on either side stays down.');
+    entry(HARD_COVER_MODIFIER, texts.hardCover);
+    entry(`${HARD_COVER_MODIFIER}_desc`, texts.hardCoverDesc);
   }
-  if (st.MODIFIER_FORM !== 'ladder') entry(SCALE_DESC, '\\t#weak Set day by day by the battle clock#!');
+  if (st.MODIFIER_FORM !== 'ladder') entry(SCALE_DESC, texts.scaleDesc);
   return lines.join('\n') + '\n';
 }
 
@@ -1637,6 +1680,7 @@ const BATTLE_CLOCK_OUTPUTS = [
   ['common/scripted_effects/ck3xbl_gen_steer_control_effects.txt', genSteerControlEffects],
   ['common/combat_phase_events/ck3xbl_gen_shield_phase_events.txt', genShieldPhaseEvents],
   ['localization/english/ck3xbl_gen_steer_l_english.yml', genSteerLoc],
+  ['localization/french/ck3xbl_gen_steer_l_french.yml', (d, st) => genSteerLoc(d, st, 'french')],
 ];
 
 // ---------------------------------------------------------------------------------------------------------------

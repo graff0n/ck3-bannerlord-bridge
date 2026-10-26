@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using CK3xBL.Protocol;
 using TaleWorlds.Core;
 using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.InputSystem;
@@ -300,6 +301,9 @@ namespace CK3Bridge
 
         // ------------------------------------------------------------------ result
 
+        /// <summary>presentation.texts: the result footer in the player's language (null = the English of CardText).</summary>
+        private ModuleTexts ModuleTexts => _session.Request.Presentation?.Texts;
+
         /// <summary>
         /// The battle result is in: the title card makes way for the footer (the centre stays free for the stock
         /// scoreboard and victory/defeat music). presentation.returnCountdownSeconds: 0 returns at once, -1 waits for the
@@ -308,7 +312,7 @@ namespace CK3Bridge
         private void EnterResult()
         {
             MissionResult result = Mission.MissionResult;
-            _outcome = CardText.Outcome(_session.Texts.Title, result?.PlayerVictory == true, result?.PlayerDefeated == true);
+            _outcome = CardText.Outcome(_session.Texts.Title, result?.PlayerVictory == true, result?.PlayerDefeated == true, ModuleTexts);
             _dataSource?.SetCard(null);
             SetAlpha(0f, 1f);
             int seconds = _session.Request.Presentation.ReturnCountdownSeconds;
@@ -325,7 +329,7 @@ namespace CK3Bridge
             }
             Enter(Stage.Result);
             _countdownLeft = seconds;
-            _dataSource?.ShowFooter(CardText.CountdownFooter(_outcome, CardText.SecondsShown(_countdownLeft)));
+            _dataSource?.ShowFooter(CardText.CountdownFooter(_outcome, CardText.SecondsShown(_countdownLeft), ModuleTexts));
         }
 
         private void TickResult(float realDt, bool paused, bool keysLive)
@@ -344,14 +348,14 @@ namespace CK3Bridge
                 _session.BeginReturn();
                 return;
             }
-            _dataSource?.ShowFooter(CardText.CountdownFooter(_outcome, CardText.SecondsShown(_countdownLeft)));
+            _dataSource?.ShowFooter(CardText.CountdownFooter(_outcome, CardText.SecondsShown(_countdownLeft), ModuleTexts));
         }
 
         /// <summary>"Stay on the field": no countdown; Enter, the scoreboard's Done or the bridge's return_now return.</summary>
         private void EnterLinger()
         {
             Enter(Stage.Linger);
-            _dataSource?.ShowFooter(CardText.WaitFooter(_outcome));
+            _dataSource?.ShowFooter(CardText.WaitFooter(_outcome, ModuleTexts));
         }
 
         /// <summary>

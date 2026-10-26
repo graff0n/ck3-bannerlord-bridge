@@ -165,8 +165,11 @@ public sealed class TransitionUx : ITransitionUx
     /// </summary>
     public bool TitleCardPresented => _titleCardPresented;
 
-    public Task ShowResultCardAsync(TitleCard card, CancellationToken ct) =>
-        ShowCardAsync(card, TitleCardRenderer.KindForResult(card?.Title), ct);
+    public Task ShowResultCardAsync(TitleCard card, CancellationToken ct) => ShowCardAsync(card, ResultKind(card), ct);
+
+    /// <summary>The style of a result card: from its outcome (<see cref="TitleCard.Defeat"/>), else read from its English title.</summary>
+    internal static CardKind ResultKind(TitleCard? card) =>
+        card?.Defeat is { } defeat ? (defeat ? CardKind.Defeat : CardKind.Victory) : TitleCardRenderer.KindForResult(card?.Title);
 
     public async Task HideAsync(CancellationToken ct)
     {

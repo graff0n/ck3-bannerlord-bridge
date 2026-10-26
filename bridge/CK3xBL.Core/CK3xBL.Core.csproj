@@ -13,4 +13,8 @@
     <Compile Include="..\..\shared\Protocol.cs" Link="Protocol\Protocol.cs" />
     <InternalsVisibleTo Include="CK3xBL.SelfTest" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Player-facing texts of the battle loop (Localization/Loc.cs), one file per language. -->
+    <EmbeddedResource Include="..\data\i18n\*.json" LogicalName="CK3xBL.i18n.%(Filename).json" />
+  </ItemGroup>
 </Project>

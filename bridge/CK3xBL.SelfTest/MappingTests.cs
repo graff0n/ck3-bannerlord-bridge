@@ -58,6 +58,7 @@ internal static partial class MappingTests
         r.Add("mapping.request.siege_details", SiegeDetails);
         r.Add("mapping.request.raid_sergeant_and_stock_general", RaidDetails);
         r.Add("mapping.request.huge_battle_scaling", HugeDetails);
+        r.Add("mapping.presentation.title_article_only_for_english_battle_names", TitleArticleOnlyForEnglish);
         r.Add("mapping.request.stand_in_avatar_when_player_absent", StandInAvatar);
         r.Add("mapping.request.vassal_battle_without_player", VassalBattle);
         r.Add("mapping.outcome.abort_cancel_and_player_protection", AbortCancelAndProtection);
@@ -832,6 +833,14 @@ internal static partial class MappingTests
         Expect.True(plan.Defender.Retinues.Count > 0);
         // Early Norse nobles fight on foot.
         Expect.Equal("sturgia", req.Attacker.Culture);
+    }
+
+    private static void TitleArticleOnlyForEnglish()
+    {
+        static string TitleOf(string combat) => PresentationWriter.Title(new BattleSnapshot { CombatName = combat });
+        Expect.Equal("The Battle of Orangallu", TitleOf("Battle of Orangallu"));
+        Expect.Equal("The Battle of Orangallu", TitleOf("The Battle of Orangallu"), "an article already there is kept");
+        Expect.Equal("Bataille de Višegrad", TitleOf("Bataille de Višegrad"), "a French combat name gets no English article");
     }
 
     private static void HugeDetails()

@@ -6,6 +6,7 @@ using CK3xBL.Core.Ck3;
 using CK3xBL.Core.Config;
 using CK3xBL.Core.Delivery;
 using CK3xBL.Core.Diagnostics;
+using CK3xBL.Core.Localization;
 using CK3xBL.Core.Logs;
 using CK3xBL.Core.Orchestration;
 using CK3xBL.Mapping;
@@ -89,6 +90,11 @@ internal sealed class BridgeHost : IAsyncDisposable
         _ux.OverlayAutoHidden += reason => journal.Info("ux", $"overlay removed by a safety valve: {reason}");
         _appearance = new AppearanceProvider { DataDirectory = paths.DataDir };
 
+        // The battle loop's texts (cards, objective and host names, notices) speak the player's language; logs stay English.
+        string language = Loc.Use(LanguageChoice.Resolve(config.Ux.Language, config.Ck3.UserDir, out var ck3Language));
+        journal.Info("app", $"language: {language} (ux.language {config.Ux.Language}, CK3 {ck3Language ?? "unknown"})" +
+                            (Loc.Reviewed ? "" : ", community translation, review appreciated"));
+
         _orchestrator = new BattleOrchestrator(new OrchestratorServices
         {
             Mapper = new BattleMapper(),
@@ -114,7 +120,7 @@ internal sealed class BridgeHost : IAsyncDisposable
 
         // A windowed CK3 breaks the seamless switch: checked once a battle is offered, before any card.
         _ck3WindowMode = new Ck3WindowModeGuard(Ck3WindowModeGuard.Win32Probe,
-            text => notifier.Notify("CK3 window mode", text, NoticeKind.Warning),
+            text => notifier.Notify(Loc.T("notice.window_mode.title"), text, NoticeKind.Warning),
             _ux.Stager.EnsureBorderless, config.Ux.Ck3Windowed);
         _orchestrator.PhaseChanged += (phase, battleId) =>
         {

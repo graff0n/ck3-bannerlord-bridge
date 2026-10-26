@@ -5,6 +5,7 @@
 // title card dissolves into the battle, so the module shows none (inEngineTitle = false, PROTOCOL §13.6). A reinforcement clash
 // keeps the earlier clash's ground and staging under the title "Reinforcements arrive!" (PROTOCOL §14.6).
 using CK3xBL.Core.Abstractions;
+using CK3xBL.Core.Localization;
 using CK3xBL.Core.Model;
 using CK3xBL.Mapping.Resolution;
 using CK3xBL.Protocol;
@@ -13,15 +14,18 @@ namespace CK3xBL.Mapping.Planning;
 
 public static class PresentationWriter
 {
-    public const string ReinforcementsTitle = "Reinforcements arrive!";
+    /// <summary>The title of a reinforcement clash ("Reinforcements arrive!" in English).</summary>
+    public static string ReinforcementsTitle => Loc.T("reinforcements.title");
 
     public static string PlaceName(BattleSnapshot battle)
     {
         string p = Text.SanitizeName(battle.Location.ProvinceName);
         if (p.Length > 0) return p;
         string combat = Text.SanitizeName(battle.CombatName);
-        const string prefix = "Battle of ";
-        return combat.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? combat[prefix.Length..] : combat.Length > 0 ? combat : "the field";
+        if (combat.Length == 0) return Loc.T("place.fallback");
+        foreach (string prefix in Loc.List("place.combat_prefixes"))   // "Battle of " in English
+            if (prefix.Length > 0 && combat.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return combat[prefix.Length..];
+        return combat;
     }
 
     private static string CountyName(BattleSnapshot battle, BattlefieldChoice field)
@@ -31,29 +35,34 @@ public static class PresentationWriter
         return n.Length > 0 ? n : PlaceName(battle);
     }
 
-    /// <summary>The CK3 combat name with an article: "Battle of Orangallu" -> "The Battle of Orangallu".</summary>
+    /// <summary>
+    /// The CK3 combat name, with an article when it is English: "Battle of Orangallu" -> "The Battle of Orangallu". A combat
+    /// name in another game language is kept as CK3 wrote it ("Bataille de Višegrad").
+    /// </summary>
     public static string Title(BattleSnapshot battle)
     {
         string combat = Text.SanitizeName(battle.CombatName);
-        if (combat.Length == 0) return $"The Battle of {PlaceName(battle)}";
-        return combat.StartsWith("The ", StringComparison.OrdinalIgnoreCase) ? combat : "The " + combat;
+        if (combat.Length == 0) return Loc.T("title.fallback", ("place", PlaceName(battle)));
+        if (combat.StartsWith("The ", StringComparison.OrdinalIgnoreCase)) return combat;
+        string article = Loc.T("title.article_when_prefix");   // "Battle " in English; empty: the CK3 name is used as it is
+        return article.Length > 0 && combat.StartsWith(article, StringComparison.Ordinal) ? Loc.T("title.with_article", ("combat", combat)) : combat;
     }
 
     public static string Detail(BattleSnapshot battle, BattlefieldChoice field)
     {
-        if (field.Kind == "village") return $"The village of {CountyName(battle, field)}";
-        if (!field.Relief) return $"{Ground(field)} near {CountyName(battle, field)}";
+        if (field.Kind == "village") return Loc.T("detail.village", ("county", CountyName(battle, field)));
+        if (!field.Relief) return Loc.T("detail.near", ("ground", Ground(field)), ("county", CountyName(battle, field)));
         bool fields = field.ListSource == "terrain" && SceneVegetation.IsOpenPool(field.PoolTerrain);
-        return $"{(fields ? "Fields" : Ground(field))} before {PlaceName(battle)}";
+        return Loc.T("detail.before", ("ground", fields ? Loc.T("ground.fields") : Ground(field)), ("place", PlaceName(battle)));
     }
 
     /// <summary>The ground of the field scene: the situational list it led with, else the terrain of its scene pool.</summary>
     private static string Ground(BattlefieldChoice field) => field.ListSource switch
     {
-        "coastal_near" or "coastal_far" or "strait->coastal" => "Coast",
-        "riverside" or "river_crossing" => "Riverbank",
-        "major_river_crossing" => "River crossing",
-        "lakeside_near" => "Lakeshore",
+        "coastal_near" or "coastal_far" or "strait->coastal" => Loc.T("ground.coast"),
+        "riverside" or "river_crossing" => Loc.T("ground.riverbank"),
+        "major_river_crossing" => Loc.T("ground.river_crossing"),
+        "lakeside_near" => Loc.T("ground.lakeshore"),
         _ => Text.TerrainName(field.PoolTerrain),
     };
 
@@ -66,30 +75,48 @@ public static class PresentationWriter
         string leader = Text.SanitizeName(side.Primary?.Name);
         if (leader.Length == 0)
             leader = Text.SanitizeName(side.Armies.OrderByDescending(a => a.Size).Select(a => a.Owner?.Name).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)));
-        if (leader.Length > 0) return $"Host of {leader}";
+        if (leader.Length > 0) return Loc.T("side.host_of", ("leader", leader));
         string army = Text.SanitizeName(side.Armies.OrderByDescending(a => a.Size).FirstOrDefault()?.Name);
-        return army.Length > 0 ? army : side.Key == SideKey.Attacker ? "Attacking host" : "Defending host";
+        return army.Length > 0 ? army : side.Key == SideKey.Attacker ? Loc.T("side.attacking_host") : Loc.T("side.defending_host");
     }
+
+    /// <summary>"Spring 1066": the season, with the year when it is known.</summary>
+    private static string When(string season, int year) => year > 0 ? Loc.T("season.with_year", ("season", season), ("year", year)) : season;
 
     public static Presentation Build(BattleSnapshot battle, BattlefieldChoice field, HeroAssignment heroes, string playerSideName, MapperOptions options)
     {
         var enemySide = battle.Side(heroes.PlayerSide == SideKey.Attacker ? SideKey.Defender : SideKey.Attacker);
         string own = heroes.Avatar?.Spec.Name ?? heroes.General(heroes.PlayerSide)?.Spec.Name ?? playerSideName;
         string enemy = heroes.General(enemySide.Key)?.Spec.Name ?? ArmyObject(enemySide);
-        string when = battle.Year > 0 ? $"{Text.SeasonName(field.Season)} {battle.Year}" : Text.SeasonName(field.Season);
-        string objective = SiegeObjective(battle, field, heroes.PlayerSide) ?? "Rout " + ArmyObject(enemySide);
+        string when = When(Text.SeasonName(field.Season), battle.Year);
+        string objective = SiegeObjective(battle, field, heroes.PlayerSide) ?? Loc.T("objective.rout", ("enemy", ArmyObject(enemySide)));
         return new Presentation
         {
             Preload = true,
             Title = Title(battle),
-            Subtitle = $"{own} against {enemy} · {when}",
+            Subtitle = Loc.T("subtitle.versus", ("own", own), ("enemy", enemy), ("when", when)),
             Detail = Detail(battle, field),
             Objective = Text.Capitalize(objective),
             ReturnCountdownSeconds = options.ReturnCountdownSeconds,
             Deployment = options.Deployment,
             InEngineTitle = false,
+            Texts = ModuleTexts(),
         };
     }
+
+    /// <summary>
+    /// The module's own texts (result footer, PROTOCOL §3.2 presentation.texts) in the current language; null in English, so an
+    /// English request is exactly what it was before and the module keeps its built-in English.
+    /// </summary>
+    public static ModuleTexts? ModuleTexts() => Loc.Language == Loc.English ? null : new ModuleTexts
+    {
+        TheBattle = Loc.T("module.the_battle"),
+        OutcomeWon = Loc.T("module.outcome_won"),
+        OutcomeLost = Loc.T("module.outcome_lost"),
+        OutcomeOver = Loc.T("module.outcome_over"),
+        CountdownFooter = Loc.T("module.countdown_footer"),
+        WaitFooter = Loc.T("module.wait_footer"),
+    };
 
     /// <summary>
     /// The presentation of a reinforcement clash (PROTOCOL §14.6): "Reinforcements arrive!", who joined which host, and the earlier
@@ -109,13 +136,12 @@ public static class PresentationWriter
             .SelectMany(s => s.Armies.Where(a => !fought.Contains(a.Tag)).Select(a => (Side: s, Army: a)))
             .OrderByDescending(x => x.Side.Key == loser).ThenByDescending(x => x.Army.Size).ThenBy(x => x.Army.Tag)
             .FirstOrDefault();
-        string season = Text.SeasonName(parent.Request.Season);
-        string when = capped.Year > 0 ? $"{season} {capped.Year}" : season;
+        string when = When(Text.SeasonName(parent.Request.Season), capped.Year);
         return new Presentation
         {
             Preload = planned.Preload,
             Title = ReinforcementsTitle,
-            Subtitle = joiner.Army is null ? planned.Subtitle : $"{Joins(joiner.Side, joiner.Army, fought)} · {when}",
+            Subtitle = joiner.Army is null ? planned.Subtitle : Loc.T("joins.with_when", ("joins", Joins(joiner.Side, joiner.Army, fought)), ("when", when)),
             Detail = earlier.Detail,
             Objective = planned.Objective,
             ReturnCountdownSeconds = planned.ReturnCountdownSeconds,
@@ -123,6 +149,7 @@ public static class PresentationWriter
             AttackerCoaPng = earlier.AttackerCoaPng,
             DefenderCoaPng = earlier.DefenderCoaPng,
             InEngineTitle = earlier.InEngineTitle,
+            Texts = planned.Texts,
         };
     }
 
@@ -143,13 +170,15 @@ public static class PresentationWriter
         foreach (var other in side.Armies.Where(a => a.Tag != joiner.Tag && fought.Contains(a.Tag)))
             if (other.Commander is { Ck3Id: not 0 } cmd) leaders.Add(cmd.Ck3Id);
         bool Leads(CharacterRef? r) => r is { Ck3Id: not 0 } && leaders.Contains(r.Ck3Id);
-        if (Leads(joiner.Owner) || Leads(joiner.Commander)) return $"Fresh troops join the {host}";
+        if (Leads(joiner.Owner) || Leads(joiner.Commander)) return Loc.T("joins.fresh_troops", ("host", host));
         string commander = Text.SanitizeName(joiner.Commander?.Name);
-        if (commander.Length > 0) return $"{commander} brings fresh troops to the {host}";
+        if (commander.Length > 0) return Loc.T("joins.commander", ("commander", commander), ("host", host));
         string owner = Text.SanitizeName(joiner.Owner?.Name);
-        if (owner.Length > 0) return $"{owner} joins the {host}";
+        if (owner.Length > 0) return Loc.T("joins.owner", ("owner", owner), ("host", host));
         string army = Text.SanitizeName(joiner.Name);
-        return army.Length > 0 ? $"{Text.Capitalize(Text.ArmyAsObject(joiner.Name))} joins the {host}" : $"Fresh troops join the {host}";
+        return army.Length > 0
+            ? Loc.T("joins.army", ("army", Text.Capitalize(Text.ArmyAsObject(joiner.Name))), ("host", host))
+            : Loc.T("joins.fresh_troops", ("host", host));
     }
 
     /// <summary>The character a side's host is named after (<see cref="SideName"/>): its primary participant, else the owner of its
@@ -167,8 +196,8 @@ public static class PresentationWriter
         if (!field.Relief) return null;
         static bool Besieger(SideSnapshot side) => side.Armies.Any(a => a.Besieging == true);
         string place = PlaceName(battle);
-        if (Besieger(battle.Side(playerSide))) return $"Hold the siege lines before {place}";
-        if (Besieger(battle.Side(playerSide == SideKey.Attacker ? SideKey.Defender : SideKey.Attacker))) return $"Break the siege of {place}";
+        if (Besieger(battle.Side(playerSide))) return Loc.T("objective.hold_siege", ("place", place));
+        if (Besieger(battle.Side(playerSide == SideKey.Attacker ? SideKey.Defender : SideKey.Attacker))) return Loc.T("objective.break_siege", ("place", place));
         return null;
     }
 }

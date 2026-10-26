@@ -125,6 +125,9 @@ public sealed class UxSettings
     /// <summary>CK3 in a window instead of fullscreen: notice (one tray notice per CK3 start) | borderless (stage it borderless on
     /// its monitor, restored on exit) | ignore.</summary>
     public string Ck3Windowed = "notice";
+    /// <summary>Language of the battle loop's texts (cards, Bannerlord objective and host names, battle notices): auto (CK3's own
+    /// language, from pdx_settings.txt) | en | fr | de | es. A text missing in that language is shown in English.</summary>
+    public string Language = "auto";
 }
 
 /// <summary>The battle clock (PROTOCOL §14): after the Bannerlord fight, CK3's own combat inflicts the result over a few days, so war

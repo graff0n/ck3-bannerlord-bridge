@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using CK3xBL.Core.Localization;
 
 namespace CK3xBL.Mapping.Planning;
 
@@ -38,33 +39,25 @@ public static partial class Text
     public static string ArmyAsObject(string? armyName)
     {
         string n = SanitizeName(armyName);
-        if (n.Length == 0) return "the enemy host";
+        if (n.Length == 0) return Loc.T("army.enemy_host");
         n = Ordinal().Replace(n, "");
-        if (n.Contains("'s ", StringComparison.Ordinal) || n.StartsWith("the ", StringComparison.OrdinalIgnoreCase)) return n;
-        return "the " + n;
+        string contains = Loc.T("army.as_object_skip_contains"), prefix = Loc.T("army.as_object_skip_prefix");
+        if ((contains.Length > 0 && n.Contains(contains, StringComparison.Ordinal)) ||
+            (prefix.Length > 0 && n.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            return n;
+        return Loc.T("army.as_object", ("army", n));
     }
 
     public static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
-    /// <summary>Season for display; Bannerlord's "fall" reads as CK3's "Autumn".</summary>
-    public static string SeasonName(string season) => season switch
-    {
-        "spring" => "Spring",
-        "summer" => "Summer",
-        "fall" => "Autumn",
-        "winter" => "Winter",
-        _ => Capitalize(season),
-    };
+    /// <summary>Season for display ("season.&lt;id&gt;"); Bannerlord's "fall" reads as CK3's "Autumn".</summary>
+    public static string SeasonName(string season) => Loc.Has($"season.{season}") ? Loc.T($"season.{season}") : Capitalize(season);
 
-    public static string TerrainName(string terrain) => terrain switch
-    {
-        "terraced_hills" => "Terraced hills",
-        "desert_mountains" => "Desert mountains",
-        "coastal_sea" or "sea" => "Coast",
-        _ => Capitalize(terrain.Replace('_', ' ')),
-    };
+    /// <summary>Terrain for display ("terrain.&lt;id&gt;"), else the id in words.</summary>
+    public static string TerrainName(string terrain) =>
+        Loc.Has($"terrain.{terrain}") ? Loc.T($"terrain.{terrain}") : Capitalize(terrain.Replace('_', ' '));
 
-    public static string Number(int n) => n.ToString("N0", CultureInfo.InvariantCulture);
+    public static string Number(int n) => Loc.Number(n);
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Spaces();

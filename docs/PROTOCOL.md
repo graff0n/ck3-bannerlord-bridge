@@ -188,13 +188,22 @@ Afterwards it overwrites the file with `debug_log = "CK3XBL|NOOP"`.
     "detail": "Hills near Orangallu",
     "objective": "Rout the Raiders of Hepung",
     "returnCountdownSeconds": 10,  // after the result; -1 = wait for the player
-    "deployment": "order_of_battle" // order_of_battle | auto
+    "deployment": "order_of_battle", // order_of_battle | auto
+    "texts": null                  // the module's result texts in the player's language; null = its English (below)
   },
   "scale": { "menPerAgent": 6.2 }, // informational
   "attacker": SideRequest,
   "defender": SideRequest
 }
 ```
+**`presentation.texts`** (`ModuleTexts`): six templates of the module's result footer, sent by the bridge only when its language
+(`ux.language`) is not English; `null` (an English request) or absent (an older bridge) = the module's built-in English. The bridge
+fills them from its language file (`bridge/data/i18n/<lang>.json`, keys `module.*`):
+`theBattle` (the subject when the title is not a battle name, e.g. "Reinforcements arrive!"), `outcomeWon` / `outcomeLost` /
+`outcomeOver` (required placeholder `{title}`), `countdownFooter` (required `{outcome}`, and `{seconds}`), `waitFooter` (required
+`{outcome}`). A template that is empty or lacks its required placeholder is ignored and the module uses its English for it. An older
+module ignores the member (Newtonsoft `MissingMemberHandling.Ignore`). The other `presentation` texts (title, subtitle, detail,
+objective) are already written by the bridge in its language.
 `SideRequest`:
 ```jsonc
 {

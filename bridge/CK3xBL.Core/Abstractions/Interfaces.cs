@@ -198,6 +198,9 @@ public sealed class TitleCard
     public string? LeftCoaPng;
     public string? RightCoaPng;
     public IntPtr FreezeFrameFrom;                    // window to freeze-frame first (CK3), or zero
+    /// <summary>Result cards: true = defeat style, false = victory style, null = read from the title (older callers). Set from the
+    /// outcome, so the style never depends on the (translated) title text.</summary>
+    public bool? Defeat;
 }
 
 /// <summary>How one delivery attempt ended.</summary>
